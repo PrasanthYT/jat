@@ -18,8 +18,11 @@ export default function JobApplicantsPage({ params }) {
   const [applicants, setApplicants] = useState([])
 
   useEffect(() => {
-    if (jobs.length > 0) {
+    // Check if we have jobs data
+    if (jobs && jobs.length > 0) {
+      // Find the job with the matching ID
       const foundJob = jobs.find((j) => j.id === params.id)
+
       if (foundJob) {
         setJob(foundJob)
 
@@ -36,11 +39,41 @@ export default function JobApplicantsPage({ params }) {
           setApplicants(mockApplicants)
         }
       } else {
-        // Job not found, redirect to jobs page
+        // If no job is found, we'll redirect to the jobs page
         router.push("/jobs")
       }
-      setLoading(false)
+    } else {
+      // If there are no jobs yet, we'll try to load from localStorage directly
+      try {
+        const storedJobs = JSON.parse(localStorage.getItem("jobs") || "[]")
+        const foundJob = storedJobs.find((j) => j.id === params.id)
+
+        if (foundJob) {
+          setJob(foundJob)
+
+          // Generate mock applicants based on the job's applicant count
+          if (foundJob.applicants > 0) {
+            const mockApplicants = Array.from({ length: foundJob.applicants }, (_, i) => ({
+              id: `applicant-${i + 1}`,
+              name: `Applicant ${i + 1}`,
+              email: `applicant${i + 1}@example.com`,
+              stage: getRandomStage(),
+              applied: getRandomTimeAgo(),
+              rating: Math.floor(Math.random() * 5) + 1,
+            }))
+            setApplicants(mockApplicants)
+          }
+        } else {
+          router.push("/jobs")
+        }
+      } catch (error) {
+        console.error("Error loading job from localStorage:", error)
+        router.push("/jobs")
+      }
     }
+
+    // Always set loading to false after attempting to find the job
+    setLoading(false)
   }, [params.id, router, jobs])
 
   if (loading) {
