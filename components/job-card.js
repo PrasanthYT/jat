@@ -48,4 +48,3 @@ export function JobCard({ job, className, ...props }) {
     </Link>
   )
 }
-    
