@@ -5,34 +5,52 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Edit, Trash2, Users, Calendar, MapPin, Clock, Briefcase, DollarSign } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Users, Calendar, MapPin, Clock, Briefcase, DollarSign, User2 } from "lucide-react"
+import { useJobs } from "@/components/jobs-provider"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { toast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 export default function JobDetailPage({ params }) {
   const router = useRouter()
+  const { jobs, deleteJob } = useJobs()
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch job details from localStorage
-    try {
-      const storedJobs = JSON.parse(localStorage.getItem("jobs") || "[]")
-      const foundJob = storedJobs.find((j) => j.id === params.id)
-
+    if (jobs.length > 0) {
+      const foundJob = jobs.find((j) => j.id === params.id)
       if (foundJob) {
         setJob(foundJob)
       } else {
         // Job not found, redirect to jobs page
         router.push("/jobs")
       }
-    } catch (error) {
-      console.error("Error fetching job:", error)
-    } finally {
       setLoading(false)
     }
-  }, [params.id, router])
+  }, [params.id, router, jobs])
+
+  const handleDelete = () => {
+    deleteJob(params.id)
+    toast({
+      title: "Job Deleted",
+      description: "The job has been successfully deleted.",
+    })
+    router.push("/jobs")
+  }
 
   if (loading) {
-    return <div className="text-center py-10">Loading job details...</div>
+    return <JobDetailSkeleton />
   }
 
   if (!job) {
@@ -76,14 +94,32 @@ export default function JobDetailPage({ params }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline">
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/jobs/${params.id}/edit`}>
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Link>
           </Button>
-          <Button size="sm" variant="destructive">
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive">
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the job listing and all associated data. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -136,12 +172,67 @@ export default function JobDetailPage({ params }) {
       <Separator />
 
       <div className="border rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-2">Applicants</h2>
-        <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground">No applicants yet.</p>
-          <Button size="sm" className="mt-2">
-            Add Applicant
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Applicants</h2>
+          <Button size="sm" asChild>
+            <Link href={`/jobs/${params.id}/applicants/new`}>Add Applicant</Link>
           </Button>
+        </div>
+
+        {job.applicants > 0 ? (
+          <div className="space-y-3">
+            {[...Array(Math.min(job.applicants, 3))].map((_, index) => (
+              <div key={index} className="flex items-start gap-3 pb-3 border-b last:border-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <User2 className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Applicant {index + 1}</p>
+                    <Badge variant="outline">New</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Applied 2 days ago</p>
+                </div>
+              </div>
+            ))}
+            {job.applicants > 3 && (
+              <Button variant="outline" size="sm" className="w-full" asChild>
+                <Link href={`/jobs/${params.id}/applicants`}>View All {job.applicants} Applicants</Link>
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground">No applicants yet.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function JobDetailSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-8 w-32 bg-muted rounded-md"></div>
+      <div className="space-y-2">
+        <div className="h-8 w-2/3 bg-muted rounded-md"></div>
+        <div className="h-4 w-1/2 bg-muted rounded-md"></div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="border rounded-lg p-4">
+            <div className="h-4 w-20 bg-muted rounded-md mb-2"></div>
+            <div className="h-8 w-12 bg-muted rounded-md"></div>
+          </div>
+        ))}
+      </div>
+      <div className="border rounded-lg p-4">
+        <div className="h-6 w-40 bg-muted rounded-md mb-4"></div>
+        <div className="space-y-2">
+          <div className="h-4 w-full bg-muted rounded-md"></div>
+          <div className="h-4 w-full bg-muted rounded-md"></div>
+          <div className="h-4 w-2/3 bg-muted rounded-md"></div>
         </div>
       </div>
     </div>
